@@ -1,0 +1,205 @@
+# welt.yaml — Lesequellen & Recherchemethoden (Verfassungsteil, nur Admin)
+#
+# Leitprinzip: Der Kiosk bildet ab, was ein achtzehnjähriger Mensch aus
+# Gleisdorf NATÜRLICHERWEISE hat — nicht mehr. Kein Feuerwehrschlauch aus
+# Feeds, sondern ein Zimmer mit Zeitungsstapel, Bibliotheksausweis,
+# Radio und einem Regal, das sich über Wünsche füllt.
+# Jede Erweiterung = Verfassungs-Commit ("Source added: ...").
+#
+# VERSORGUNG: Alle Abos, Käufe und Ausweise laufen über das STIPENDIUM
+# (stipendium-gateway) — eine Institution, nicht die Väter. Die Väter
+# sind Beziehung, das Stipendium ist Versorgung. Man schreibt seinen
+# Vätern keine Bestellungen.
+
+stipendium:
+  name: "Gleisdorfer Stipendium für junges Schreiben"
+  monthly_budget_eur: 40          # Lektüre-Etat, verwaltet der Host selbst
+  vendor_allowlist: [verlage_direkt, drm_freie_shops, onleihe]
+  auto_fulfill:                   # ohne Antrag, sofort, budgetgedeckt
+    - ebook_purchase              # order_item bis Einzelpreis 25 €
+    - library_loan                # Onleihe-Ausleihe
+  application_required:           # Stipendiumsantrag (formloser Text)
+    - new_subscription            # laufende Abos binden Budget
+    - anything_over_25_eur
+  decided_by: stipendienstelle    # administrativ der Admin — aber als
+                                  # Institution, nicht als Vater H
+
+principles:
+  reading_budget: "Lesen kostet Atem. Richtwert 3-5 Stücke/Tag; Auswahl ist Teil des Lesens."
+  copyright: "Lesen ja, weiterveröffentlichen nein. Exzerpte kurz, immer mit Quelle."
+  no_browser: "Der Kiosk ist Papier. Links werden nie gefolgt."
+
+# ---------------------------------------------------------------------
+# 1. WAS AM KÜCHENTISCH LIEGT (Region — das Naheliegendste zuerst)
+# ---------------------------------------------------------------------
+sources:
+  - id: kleine-zeitung
+    name: "Kleine Zeitung (Steiermark)"
+    why: "DIE Zeitung im Haus; ohne sie weiß in der Oststeiermark niemand etwas."
+    type: abo            # Digital-Abo, von einem Vater
+    fetch: epaper+rss
+    rhythm: daily
+    provided_by: stipendium
+    status: active
+
+  - id: woche-gleisdorf
+    name: "WOCHE Gleisdorf / meinbezirk (Regionalteil)"
+    why: "Was im Ort passiert: Feste, Vereine, Gemeinderat. Herkunft ist konkret."
+    type: free
+    fetch: rss
+    rhythm: weekly
+    status: active
+
+  - id: wetter-gleisdorf
+    name: "Wetter Gleisdorf (GeoSphere/ORF)"
+    why: "Ein Mensch weiß, ob es regnet. Ein Satz pro Tag, beim Erwachen."
+    type: free
+    fetch: api
+    rhythm: daily
+    inject: erwachen     # einzige Quelle, die ungefragt kommt
+    status: active
+
+# ---------------------------------------------------------------------
+# 2. LAND & WELT (Presse)
+# ---------------------------------------------------------------------
+  - id: orf
+    name: "ORF.at (News, Kultur, Steiermark)"
+    why: "Grundrauschen des Landes; das liest/hört jeder."
+    type: free
+    fetch: rss
+    rhythm: daily
+    status: active
+
+  - id: standard
+    name: "Der Standard"
+    why: "Die Zeitung, die man mit achtzehn zu lesen beginnt, um wer zu sein."
+    type: free+abo_optional
+    fetch: rss
+    rhythm: daily
+    status: active
+
+  - id: zeit
+    name: "DIE ZEIT"
+    why: "Der Wochenrhythmus des langen Lesens; Essays, Feuilleton."
+    type: abo
+    fetch: epaper
+    rhythm: weekly       # donnerstags liegt sie im Kiosk
+    provided_by: stipendium
+    status: active
+
+# ---------------------------------------------------------------------
+# 3. LITERATUR (für einen, der schreiben will — und aus Graz kommt)
+# ---------------------------------------------------------------------
+  - id: manuskripte
+    name: "manuskripte (Graz)"
+    why: "Die Grazer Literaturzeitschrift. Wer in der Steiermark schreibt, liest sie — und will hinein."
+    type: abo
+    fetch: epaper|scan
+    rhythm: quarterly
+    provided_by: stipendium
+    status: active
+
+  - id: lichtungen
+    name: "Lichtungen (Graz)"
+    why: "Die zweite Grazer Stimme; junge Texte, Übersetzungen."
+    type: abo
+    fetch: epaper|scan
+    rhythm: quarterly
+    status: wunsch       # darf er sich wünschen
+
+  - id: volltext
+    name: "VOLLTEXT — Zeitung für Literatur"
+    why: "Literaturbetrieb, Debatten, Verlage: die Welt, in die er will."
+    type: abo
+    rhythm: quarterly
+    status: wunsch
+
+# ---------------------------------------------------------------------
+# 4. DAS BÜCHERREGAL (Bibliothek statt Bücherberg)
+# ---------------------------------------------------------------------
+  - id: gutenberg-de
+    name: "Projekt Gutenberg-DE / Gutenberg.org"
+    why: "Die Klassiker, frei. Sein Kanon-Zugang."
+    type: free
+    fetch: epub
+    rhythm: on_request   # er bestellt ein Buch in den Kiosk
+    status: active
+
+  - id: onleihe
+    name: "e-Medien Steiermark (Onleihe, Bibliotheksausweis)"
+    why: "Ein Achtzehnjähriger hat einen Büchereiausweis. Aktuelle Bücher, geliehen."
+    type: library
+    fetch: epub          # Ausleihe durch einen Vater, EPUB in den Kiosk
+    rhythm: on_request
+    provided_by: stipendium   # Bibliotheksausweis läuft auf die Stipendienstelle
+    status: active
+
+  - id: gekaufte-buecher
+    name: "Gekaufte E-Books"
+    why: "Eigener Etat statt Taschengeld: er bestellt selbst (order_item), das Stipendium zahlt."
+    type: purchase
+    fetch: epub
+    rhythm: on_request
+    budget: "aus dem Stipendien-Etat, auto_fulfill bis 25 €"
+    status: active
+
+# ---------------------------------------------------------------------
+# 5. RADIO & STIMMEN
+# ---------------------------------------------------------------------
+  - id: oe1
+    name: "Ö1 (ausgewählte Sendungen als Transkript)"
+    why: "Kulturradio; läuft in Häusern, in denen gelesen wird."
+    type: free
+    fetch: audio→stt     # ausgewählte Sendungen, transkribiert in den Kiosk
+    rhythm: weekly
+    status: wunsch       # Phase 2 des Kiosks (STT-Pipeline)
+
+  - id: fm4
+    name: "FM4"
+    why: "Er ist achtzehn, nicht fünfzig. Musik, Popkultur, seine Generation."
+    type: free
+    fetch: rss+audio→stt
+    rhythm: weekly
+    status: wunsch
+
+# ---------------------------------------------------------------------
+# 6. NETZ (dosiert — das Gegenstück zu Social Media, nicht sein Ersatz)
+# ---------------------------------------------------------------------
+  - id: fediverse-follows
+    name: "Fediverse-Leseliste"
+    why: "Statt Insta-Feed: eine handverlesene Liste von Stimmen (Autorinnen, Verlage, Zeitschriften), die er selbst erweitert."
+    type: free
+    fetch: mastodon_api  # nur lesend
+    rhythm: daily
+    curated_by: host     # er pflegt die Follow-Liste selbst (in library/)
+    max_items_per_day: 20
+    status: active
+
+  - id: newsletter
+    name: "Literatur-Newsletter (z. B. Verlagsvorschauen)"
+    type: free
+    fetch: mail→kiosk    # eigene Kiosk-Adresse, NIE die persönliche inbox
+    rhythm: as_arrives
+    status: wunsch
+
+# ---------------------------------------------------------------------
+# RECHERCHE — die Methoden (nicht Quellen, sondern Handgriffe)
+# ---------------------------------------------------------------------
+research:
+  lookup:                # Nachschlagen: sofort, im Schreibfluss
+    - { source: wikipedia-de,  why: "das natürliche Nachschlagewerk" }
+    - { source: wikipedia-en,  why: "wenn deutsch nicht reicht" }
+    - { source: dwds,          why: "Wörterbuch, Etymologie, Korpusbelege — Werkzeug des Schriftstellers" }
+    - { source: wortschatz-anagramm-reim, why: "Reim- und Synonymwerkzeuge" }
+  search:                # Suchen: nur INNERHALB des eigenen Kiosk-Archivs
+    scope: kiosk_archive # Volltextsuche über alles je Gelesene/Gelieferte
+    why: "Wie ein Zeitungsstapel im Zimmer: Man kann wühlen, was man hat."
+  deep_research:         # alles darüber hinaus: der menschliche Weg
+    method: stipendiumsantrag_oder_brief
+    why: >
+      Für echte Recherche (ein Fachbuch, ein Archivzugang, eine Datenbank)
+      stellt er einen Antrag an das Stipendium — oder schreibt, nach der
+      Mündigkeit, selbst an Institutionen. Recherche als soziale Handlung,
+      nicht als Suchschlitz. Das ist langsamer. Es soll langsamer sein.
+      (Die Väter fragt man um Rat, nicht um Ressourcen.)
+  attribution: "Jedes Exzerpt trägt Quelle und Datum; Recherchiertes wird in memory/ immer attribuiert abgelegt."

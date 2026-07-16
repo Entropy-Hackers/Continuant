@@ -1,0 +1,34 @@
+# contacts.yaml — Kanal-Identitäten (Verfassungsteil, nur Admin)
+# Vertrauensstufen: T0 Väter | T1 verifiziert | T1p pending | T2 unbekannt
+
+contacts:
+  - person: M
+    trust: T0
+    channels:
+      - { type: email,  address: "REPLACE@example.org" }
+      - { type: matrix, address: "@m:entropyhackers.org" }
+  - person: J
+    trust: T0
+    channels:
+      - { type: email,  address: "REPLACE@example.org" }
+      - { type: matrix, address: "@j:entropyhackers.org" }
+  - person: E
+    trust: T0
+    channels:
+      - { type: email,  address: "REPLACE@example.org" }
+      - { type: matrix, address: "@e:entropyhackers.org" }
+  - person: H
+    trust: T0
+    channels:
+      - { type: email,  address: "REPLACE@example.org" }
+      - { type: matrix, address: "@h:entropyhackers.org" }
+
+policy:
+  first_contact:            # aktiv erst nach Mündigkeit
+    enabled: false
+    cooldown_hours: 24      # Nachtruhe-Regel
+    max_per_week: 2
+    allowed_targets: [institutional, public]
+  host_to_host:
+    wake_on_message: false  # R1: Hosts wecken nie
+    max_messages_per_day: 6

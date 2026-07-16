@@ -1,0 +1,8 @@
+# model.lock — gepinnte Identitätsträger (Änderung = Verfassungs-Commit "Model transition")
+model: anthropic/claude-sonnet-4-6
+heartbeat_model: deepseek/deepseek-chat
+founding_model: anthropic/claude-sonnet-4-6   # Gründungsakt: das starke Modell
+voice: null                                   # ggf. im Gründungsakt gewählt, dann hier gepinnt
+temperature:
+  default: 0.7
+  dream: 1.1
