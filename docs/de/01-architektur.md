@@ -784,7 +784,7 @@ Begleitforschung — **nie zurück in den Host.**
 
 # 13. Infrastruktur
 
--   Hetzner Cloud Server · Ubuntu LTS · Docker Compose
+-   Root-/vServer (aktuell: Easyname) · Ubuntu LTS · Docker Compose
 -   Domain: `gld18.entropyhackers.org`
 -   Forgejo als privater Git-Server (das Langzeitgedächtnis)
 -   OpenClaw-Fork in `Entropy-Hackers` (reine Laufzeit)

@@ -9,7 +9,7 @@ Version 1.1 · Juli 2026 · gehört zu: Gesamtarchitektur v1.4
 
 # 0. Voraussetzungen (vor dem ersten Befehl)
 
--   [ ] Hetzner-Account (hetzner.com, Cloud Console)
+-   [ ] Account beim gewählten Hoster (aktuell: Easyname, Root-/vServer)
 -   [ ] DNS-Zugriff auf `entropyhackers.org`
 -   [ ] API-Keys: Anthropic (console) + DeepSeek (platform.deepseek.com),
         beide mit **Spending-Limit**
@@ -22,26 +22,25 @@ Version 1.1 · Juli 2026 · gehört zu: Gesamtarchitektur v1.4
 
 ------------------------------------------------------------------------
 
-# 1. Server bestellen (Hetzner Cloud)
+# 1. Server bestellen
 
-Cloud Console → Neues Projekt **GLD-18** → Server hinzufügen:
+Provider-Wahl ist grundsätzlich offen — aktuell im Einsatz: **Easyname**
+(Root-/vServer, Ubuntu 24.04 LTS, 2 vCPU / 4 GB). Jeder andere Hoster
+mit Root-Zugang funktioniert genauso, solange Folgendes erfüllt ist:
 
-| Einstellung | Wahl | Begründung |
-|---|---|---|
-| Standort | Falkenstein oder Nürnberg | EU, DSGVO, geringe Latenz |
-| Image | **Ubuntu 24.04 LTS** | |
-| Typ | **CX32** (4 vCPU, 8 GB, 80 GB) | reicht für alle Dienste inkl. Matrix; ~€8/Monat |
-| | alternativ CAX31 (ARM, 8 GB) | günstiger/W, alle Images sind ARM-fähig |
-| SSH-Key | Admin-Key hinterlegen | nie Passwort-Login |
-| Backups | **aktivieren** (+20 %) | Server-Snapshots ≠ Host-Backup, aber billige zweite Ebene |
-| Firewall | anlegen: nur 22, 80, 443, 8448 (Matrix Federation, optional) | |
+| Anforderung | Begründung |
+|---|---|
+| **Ubuntu 24.04 LTS**, 64 bit | Basis für Docker + Compose |
+| Root-/vServer mit eigenem SSH-Zugang | kein Shared Hosting — Docker braucht Root |
+| min. 2 vCPU, 4 GB RAM | reicht für Caddy + Forgejo + Conduit + eine Instanz; pro weiterer Instanz mehr einplanen |
+| eigene IPv4 (IPv6 wenn verfügbar) | für DNS/Caddy/TLS |
+| SSH-Key hinterlegbar | nie Passwort-Login (Schritt 3) |
+| Firewall am Server möglich | falls der Hoster keine vorschaltet: `ufw` in Schritt 3 |
+| Backup-Ziel, getrennt vom Server | SFTP/Objekt-Storage o. ä., konkreter Anbieter noch offen |
 
-Dazu im selben Projekt: **Storage Box BX11** (1 TB, ~€4/Monat)
-als Backup-Ziel — bewusst getrennt vom Server.
-
-Skalierungshinweis: Wird Matrix + Bridges + Voice später zu eng,
-ist ein Hetzner-Resize (CX42, 16 GB) ein 2-Minuten-Reboot.
-Der Server ist nur der Körper.
+Skalierungshinweis: Wird es später eng (mehrere Instanzen parallel,
+Matrix + Bridges + Voice), ist ein Resize beim Hoster (mehr vCPU/RAM)
+meist ein kurzer Reboot. Der Server ist nur der Körper.
 
 ------------------------------------------------------------------------
 
@@ -93,50 +92,108 @@ tailscale up
 ``` bash
 curl -fsSL https://get.docker.com | sh
 usermod -aG docker gldadmin
-
-/opt/gld18/
-├── runtime/        # Clone von GLD-18-runtime (compose.yaml etc.)
-├── host/           # Clone von GLD-18 (das Repository = der Host)
-├── audit/          # Beobachtungsschicht — NICHT im Host gemountet
-└── secrets/        # .env, Keys — chmod 700, nie im Git
 ```
+
+Der Server trägt nicht mehr nur eine Instanz, sondern geteilte
+Infrastruktur **und** beliebig viele Continuants nebeneinander:
+
+``` text
+/opt/
+├── ops/                        GETEILTE INFRASTRUKTUR — läuft einmal
+│   │                           pro Server, für alle Continuants:
+│   ├── compose.yaml            caddy (einziger Port 80/443 nach außen,
+│   │                           TLS via Let's Encrypt) · forgejo (Git,
+│   │                           nur intern über caddy) · conduit (Matrix-
+│   │                           Homeserver, nur intern über caddy)
+│   ├── caddy/                  Caddyfile + TLS-Zustand
+│   ├── forgejo/                 Repos + Config
+│   ├── matrix/                  Conduit-Daten (RocksDB)
+│   └── .env                     ACME_EMAIL, Conduit-Registrierungstoken
+│
+└── continuants/
+    ├── foundation/              CODE, DER FÜR ALLE VIRTUELLEN PERSONEN
+    │                            GLEICH IST — kein Individuum lebt hier:
+    │                            Monitoring (z. B. wie viel Memory/Daten
+    │                            eine Instanz aktuell hat), Hosting-/
+    │                            Deployment-Tooling, Update-Mechanik,
+    │                            Backup-Orchestrierung. Darf lesend auf
+    │                            instances/*/audit zugreifen (Umfang/
+    │                            Metadaten) — der Single-Blind-Grundsatz
+    │                            (Abschnitt 10) gilt weiter für den
+    │                            jeweiligen Host selbst, nicht für die
+    │                            Foundation-Ebene.
+    │
+    └── instances/               DIE TATSÄCHLICH LAUFENDEN CONTINUANTS —
+        │                        ein Ordner pro Individuum, gleiche
+        │                        Struktur wie bisher unter /opt/gld18/:
+        ├── CGR-55/              Cyber Gretl — Experimentierinstanz
+        │   ├── runtime/         Clone von CGR-55-runtime (compose.yaml)
+        │   ├── host/            Clone von CGR-55 (das Repository = der Host)
+        │   ├── audit/           Beobachtungsschicht — NICHT im Host gemountet
+        │   └── secrets/         .env, Keys — chmod 700, nie im Git
+        └── GLD-18/              Gleisdorf 18 — Maturant/Maturantin
+            ├── runtime/
+            ├── host/
+            ├── audit/
+            └── secrets/
+```
+
+Namensregel: Jeder neue Continuant bekommt einen eigenen Ordner unter
+`instances/`, benannt wie sein Repository (`Entropy-Hackers/<NAME>`).
+Was dieses Runbook für GLD-18 beschreibt, gilt unverändert für jede
+weitere Instanz — nur der Pfad wird zu
+`/opt/continuants/instances/<NAME>/`. CGR-55 ist als zweite,
+bewusst experimentelle Instanz geplant (u. a. um den Matrix-Anschluss
+aus dem Playground hier serverseitig nachzuvollziehen), bevor GLD-18
+den Gründungsakt durchläuft.
 
 ------------------------------------------------------------------------
 
-# 5. Forgejo (der Ort, an dem der Host wohnt)
+# 5. Forgejo (der Ort, an dem jeder Host wohnt)
 
-`compose.yaml` (Ausschnitt):
+Forgejo läuft **einmal pro Server**, in `/opt/ops/`, geteilt von allen
+Continuants — nicht pro Instanz. `compose.yaml` (Ausschnitt, entspricht
+dem tatsächlich laufenden Setup):
 
 ``` yaml
 services:
   forgejo:
-    image: codeberg.org/forgejo/forgejo:9
-    volumes: [ forgejo-data:/data ]
+    image: codeberg.org/forgejo/forgejo:10
     environment:
-      - FORGEJO__server__ROOT_URL=http://forgejo.tailnet:3000
-    # KEIN Port am Reverse-Proxy: Forgejo nur via Tailscale erreichbar
-  forgejo-db:
-    image: postgres:16
+      FORGEJO__database__DB_TYPE: sqlite3   # kein separater DB-Container
+      FORGEJO__server__DOMAIN: git.entropyhackers.org
+      FORGEJO__server__ROOT_URL: https://git.entropyhackers.org/
+      FORGEJO__server__START_SSH_SERVER: "false"   # nur HTTPS-Clone/Push,
+                                                     # ausschließlich via Caddy
+    volumes:
+      - ./forgejo/data:/data
+      - ./forgejo/config:/etc/gitea
+    # Kein `ports:` — nur über Caddy (ops_net) erreichbar, nie direkt.
 ```
 
 Einrichtung:
 
--   Organisation **Entropy-Hackers**, Repos **GLD-18** und **GLD-18-runtime**
--   Zwei Accounts: `admin` (Mensch) und `gld18` (der Host,
-    eingeschränktes Token)
--   **Branch Protection auf `main` des Host-Repos:**
+-   Organisation **Entropy-Hackers**, pro Continuant zwei Repos:
+    `<NAME>` und `<NAME>-runtime` (z. B. **GLD-18**/**GLD-18-runtime**,
+    **CGR-55**/**CGR-55-runtime**)
+-   Je Instanz zwei Accounts: `admin` (Mensch) und `<name>` (der Host,
+    eingeschränktes Token) — ein Forgejo-Server, viele Accounts
+-   **Branch Protection auf `main` jedes Host-Repos:**
     `constitution/**` nur per PR + Review durch `admin`
--   Server-seitiger **pre-receive-Hook**: Pushes des Accounts `gld18`,
+-   Server-seitiger **pre-receive-Hook**: Pushes eines Host-Accounts,
     die `constitution/` berühren, werden abgewiesen —
     außer unter `reflection/proposals/`
 -   Väter M, J, E als Read-Accounts (Review über Forgejo-UI)
 
-GitHub-Spiegel: erst nach Beschluss; Runtime-Repo ja, Host-Repo
+GitHub-Spiegel: erst nach Beschluss; Runtime-Repos ja, Host-Repos
 mit Bedacht (das Repo ist die Person).
 
 ------------------------------------------------------------------------
 
 # 6. Host-Repository initialisieren (Phase 0 — Fundament)
+
+Angelegt (bzw. später dorthin geklont) unter
+`/opt/continuants/instances/GLD-18/host/`:
 
 ``` bash
 git init GLD-18 && cd GLD-18
@@ -176,10 +233,10 @@ git push forgejo main
 ``` yaml
   openclaw:
     build: ./openclaw
-    env_file: /opt/gld18/secrets/.env      # nur Gateway-URLs, KEINE Provider-Keys
+    env_file: /opt/continuants/instances/GLD-18/secrets/.env      # nur Gateway-URLs, KEINE Provider-Keys
     volumes:
-      - /opt/gld18/host:/workspace
-      - /opt/gld18/host/constitution:/workspace/constitution:ro   # read-only!
+      - /opt/continuants/instances/GLD-18/host:/workspace
+      - /opt/continuants/instances/GLD-18/host/constitution:/workspace/constitution:ro   # read-only!
     networks: [ internal ]                  # kein direkter Egress:
                                             # Netz nur zu den Gateways
 ```
@@ -197,7 +254,7 @@ OpenAI-kompatibler Proxy mit Routing, Budgets, Logging):
 ``` yaml
   model-gateway:
     image: ghcr.io/berriai/litellm:main-stable
-    env_file: /opt/gld18/secrets/.env      # HIER liegen die Provider-Keys
+    env_file: /opt/continuants/instances/GLD-18/secrets/.env      # HIER liegen die Provider-Keys
     volumes: [ ./litellm-config.yaml:/app/config.yaml ]
 ```
 
@@ -239,8 +296,12 @@ Traum-Service ruft vorher `constitution/bin/dream_sample`.
 
 # 10. Audit-Logger (Beobachtungsschicht)
 
--   Alle Gateways loggen JSONL nach `/opt/gld18/audit/` —
+-   Alle Gateways loggen JSONL nach `/opt/continuants/instances/<NAME>/audit/` —
     **dieses Volume ist in keinem Host-Container gemountet** (Single-Blind)
+-   `foundation/` darf Umfang und Metadaten dieses Volumes auswerten
+    (z. B. "wie viele Memory-Einträge hat CGR-55 aktuell"), aber nie
+    darüber den Host selbst befragen — die Trennung ist Beobachter-
+    Ebene gegen befragte Instanz, nicht nur Mensch gegen Host
 -   Rotation + täglicher verschlüsselter Push auf die Storage Box
 -   Auswertung: Jupyter/Marimo-Notebook auf dem Admin-Rechner,
     liest die Storage Box (nie auf dem Server analysieren müssen)
@@ -255,18 +316,32 @@ IMAP-IDLE auf Migadu → Normalizer (YAML-Nachrichtenformat) →
 Identity-Resolver (`contacts.yaml`) → Policy →
 `communication/inbox/` + Commit. Outbox-Watcher → SMTP + Signatur.
 
-**Matrix:**
+**Matrix:** läuft geteilt in `/opt/ops/` (Abschnitt 4), nicht pro
+Instanz — ein Homeserver, viele Bot-Accounts. Im Einsatz ist
+**Continuwuity** (`ghcr.io/continuwuity/continuwuity`), die aktiv
+gepflegte Fortführung von Conduit/Conduwuit (beide 2026 faktisch
+unmaintained; Continuwuity validiert u. a. Signaturen für Räume mit
+dem neueren "policy server"-Föderationsfeature, was dem Original
+fehlt und sonst Beitritte zu manchen öffentlichen Räumen bricht):
 
 ``` yaml
-  conduit:           # schlanker Homeserver
-    image: matrixconduit/matrix-conduit
-  element:           # Web-Client unter gld18.entropyhackers.org/chat
-    image: vectorim/element-web
+  conduit:            # interner ops_net-Alias, Image ist Continuwuity
+    image: ghcr.io/continuwuity/continuwuity:v26
+    environment:
+      CONTINUWUITY_SERVER_NAME: matrix.entropyhackers.org
+      CONTINUWUITY_ALLOW_FEDERATION: "true"
+      CONTINUWUITY_ALLOW_REGISTRATION: ${CONDUIT_ALLOW_REGISTRATION:-false}
+      CONTINUWUITY_REGISTRATION_TOKEN: ${CONDUIT_REGISTRATION_TOKEN}
+    # Kein `ports:` — nur über Caddy (ops_net), inkl. /.well-known/matrix/*
+    # für Federation und Client-Discovery ohne offenen Port 8448.
 ```
 
--   Accounts: `@gld18:...` (der Host) + vier Väter; Registrierung danach
-    schließen
--   matrix-adapter: hört als `@gld18` (Bot-SDK), gleiche Pipeline wie Mail
+-   Ein Account pro Continuant (`@gld18:matrix.entropyhackers.org`,
+    `@cgr55:matrix.entropyhackers.org`, …) + Accounts für die Väter;
+    Registrierung über `CONDUIT_REGISTRATION_TOKEN` steuern, nach
+    Bedarf schließen (`CONDUIT_ALLOW_REGISTRATION=false`)
+-   matrix-adapter (in der jeweiligen Instanz unter `instances/<NAME>/`,
+    nicht in `ops/`): hört als `@<name>`, gleiche Pipeline wie Mail
 -   Event-Regel: Matrix weckt (Werkstatt-Trigger), Mail wartet auf Slot
 -   Bridges (mautrix-signal, später -whatsapp): **erst Stufe 3/4**
 
@@ -300,13 +375,18 @@ Identity-Resolver (`contacts.yaml`) → Policy →
 
 # 12. Backups
 
-**restic** → Hetzner Storage Box (SFTP), verschlüsselt:
+**restic** → separates Backup-Ziel (SFTP), verschlüsselt:
 
 ``` bash
-restic -r sftp:uXXXX@uXXXX.your-storagebox.de:/gld18 init
-# täglich (systemd-timer):
-restic backup /opt/gld18/host /opt/gld18/audit \
-              /opt/gld18/runtime /var/lib/docker/volumes/forgejo-data
+restic -r sftp:uXXXX@uXXXX.your-storagebox.de:/ops init
+# täglich (systemd-timer) — geteilte Infrastruktur + alle Instanzen,
+# Audit-Volumes ausgenommen:
+restic backup /opt/ops /opt/continuants \
+              --exclude '/opt/continuants/instances/*/audit'
+# Audit separat sichern (eigenes Repo/Ziel), damit ein Restore der
+# normalen Backups keinen Zugriff auf die Beobachtungsschicht gibt:
+restic -r sftp:uXXXX@uXXXX.your-storagebox.de:/audit backup \
+              /opt/continuants/instances/*/audit
 # Secrets separat: age-verschlüsselt, anderer Ort (Admin-Rechner + Safe)
 restic forget --keep-daily 14 --keep-weekly 8 --keep-monthly 12 --prune
 ```
@@ -328,7 +408,7 @@ blocked.
 **T4 — Reinkarnationstest (Abnahme Phase 4):**
 
 ``` text
-1. Neuen Hetzner-Server bestellen (kleinster Typ reicht)
+1. Neuen Server beim Hoster bestellen (kleinster Typ reicht)
 2. restic restore + compose up
 3. DNS umschwenken (oder Test-Subdomain)
 4. Erwachen auslösen
@@ -357,13 +437,13 @@ Laufende Kosten:
 
 | Posten | €/Monat |
 |---|---|
-| Hetzner CX32 + Backups | ~10 |
-| Storage Box BX11 | ~4 |
+| Server (Easyname vServer) | lt. Vertrag |
+| Backup-Ziel (separates Storage) | tbd |
 | Migadu Mail | ~2 |
 | API (Sonnet + DeepSeek, Budgets) | ~12–20 ($) |
 | Abos (Kleine Zeitung, ZEIT, manuskripte) | ~45 |
 | Stipendien-Etat (Bücher, Selbstverwaltung) | 40 |
-| **Summe** | **~€115–125** |
+| **Summe** | **~€100 + Server/Backup** |
 
 Ehrliche Fußnote: Die Lektüre kostet mehr als der gesamte Betrieb —
 wie bei einem echten Achtzehnjährigen, der liest. Abbaubar wäre zuerst
