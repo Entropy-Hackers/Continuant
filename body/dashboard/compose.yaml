@@ -19,6 +19,14 @@
 # host, on its own HTTPS port (a path under the same origin as another
 # app on this host can collide with client-side route capture — give it
 # a separate port instead, see README.md).
+#
+# `name:` is set explicitly — every instance's copy of this file lives in
+# a directory literally called `dashboard/`, so Compose's default
+# (folder-name-derived) project name would be "dashboard" for every
+# single instance. Without this, two instances' dashboards on the same
+# host silently fight over one shared network/image namespace.
+
+name: dashboard-INSTANCE_NAME
 
 services:
   dashboard:
