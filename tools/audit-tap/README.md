@@ -55,12 +55,6 @@ python3 audit_tap.py --instance-dir /opt/continuants/instances/CGR-55
 first run — belt-and-suspenders on top of it never being mounted into the
 instance's own container.
 
-If this instance also gets a `body/dashboard/` deployment (see that
-directory), the dashboard container reads this audit dir read-only as a
-non-root user (UID/GID `10001`, fixed by `body/dashboard/Dockerfile`).
-Grant it access narrowly instead of loosening things for everyone:
-
-```bash
-chown root:10001 /opt/continuants/instances/<NAME>/audit
-chmod 750 /opt/continuants/instances/<NAME>/audit
-```
+If this instance also gets a `body/dashboard/` deployment, see that
+directory's README for the group-read permission steps it needs on both
+this directory and `workspace/`.

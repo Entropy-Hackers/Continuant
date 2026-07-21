@@ -8,9 +8,11 @@ a "see everything" view would need to pull from each instance's own
 dashboard over a network API, not local bind mounts — deliberately out of
 scope for this round, see docs/adr/0002).
 
-Reads only this instance's own `audit/` directory (produced by
-`tools/audit-tap`), mounted here read-only. Never touches its
-`workspace/`, `config/`, `secrets/`, or `docker.sock`.
+Reads this instance's own `audit/` directory (produced by
+`tools/audit-tap`) and, read-only, its `workspace/` — so the Väterrat sees
+not just uptime/cron metrics but MEMORY.md, recent work/, people/,
+library/, and reflection/ too. Never writes to either, and never touches
+`config/`, `secrets/`, or `docker.sock`.
 
 Single shared admin credential for v0 (no per-Vater accounts yet) — see
 docs' Non-Goals for this round.
@@ -33,6 +35,7 @@ app.permanent_session_lifetime = timedelta(days=7)
 
 INSTANCE_NAME = os.environ["DASHBOARD_INSTANCE_NAME"]
 AUDIT_DIR = Path(os.environ.get("DASHBOARD_AUDIT_DIR", "/data/audit"))
+WORKSPACE_DIR = Path(os.environ.get("DASHBOARD_WORKSPACE_DIR", "/data/workspace"))
 ADMIN_PASSWORD_HASH = os.environ["DASHBOARD_ADMIN_PASSWORD_HASH"].encode("utf-8")
 POLL_INTERVAL_MINUTES = int(os.environ.get("DASHBOARD_POLL_INTERVAL_MINUTES", "5"))
 STALE_AFTER = timedelta(minutes=POLL_INTERVAL_MINUTES * 2)
@@ -157,10 +160,93 @@ def read_instance_summary(audit_dir: Path) -> dict:
     }
 
 
+def read_text_safe(path: Path, max_chars: int = 20000) -> str | None:
+    if not path.exists() or not path.is_file():
+        return None
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return None
+    return text if len(text) <= max_chars else text[:max_chars] + "\n…(gekürzt)"
+
+
+def read_memory_recent(workspace_dir: Path, limit: int = 5) -> list[dict]:
+    """MEMORY.md is organized as `## YYYY-MM-DD` sections; return the last
+    few, newest first."""
+    text = read_text_safe(workspace_dir / "MEMORY.md")
+    if not text:
+        return []
+    sections: list[dict] = []
+    heading, body_lines = None, []
+    for line in text.splitlines():
+        if line.startswith("## "):
+            if heading is not None:
+                sections.append({"heading": heading, "body": "\n".join(body_lines).strip()})
+            heading, body_lines = line[3:].strip(), []
+        elif heading is not None:
+            body_lines.append(line)
+    if heading is not None:
+        sections.append({"heading": heading, "body": "\n".join(body_lines).strip()})
+    return list(reversed(sections[-limit:]))
+
+
+def read_recent_work(workspace_dir: Path, limit: int = 5) -> list[dict]:
+    """Recent files directly under work/ (not work/published/, not its own
+    README) — a preview of what she's actively writing, newest first."""
+    work_dir = workspace_dir / "work"
+    if not work_dir.exists():
+        return []
+    files = [
+        p
+        for p in work_dir.iterdir()
+        if p.is_file() and p.suffix == ".md" and p.name.lower() != "readme.md"
+    ]
+    files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    out = []
+    for p in files[:limit]:
+        text = read_text_safe(p, max_chars=1500) or ""
+        out.append(
+            {
+                "name": p.name,
+                "modified_iso": datetime.fromtimestamp(p.stat().st_mtime, tz=timezone.utc).isoformat(),
+                "preview": text,
+            }
+        )
+    return out
+
+
+def read_named_notes(dir_path: Path, exclude: set[str] = frozenset({"readme.md"})) -> list[dict]:
+    """Generic reader for people/*.md-style small note collections."""
+    if not dir_path.exists():
+        return []
+    notes = []
+    for p in sorted(dir_path.glob("*.md")):
+        if p.name.lower() in exclude:
+            continue
+        text = read_text_safe(p, max_chars=4000) or ""
+        notes.append({"name": p.stem, "body": text})
+    return notes
+
+
+def read_instance_life(workspace_dir: Path) -> dict:
+    return {
+        "memory_recent": read_memory_recent(workspace_dir),
+        "work_recent": read_recent_work(workspace_dir),
+        "people": read_named_notes(workspace_dir / "people"),
+        "library": read_text_safe(workspace_dir / "library" / "gelesen.md"),
+        "journal": read_text_safe(workspace_dir / "reflection" / "journal.md"),
+        "plan": read_text_safe(workspace_dir / "reflection" / "plan.md"),
+    }
+
+
 @app.route("/")
 @login_required
 def index():
-    instance = {"name": INSTANCE_NAME, **read_instance_summary(AUDIT_DIR)}
+    instance = {
+        "name": INSTANCE_NAME,
+        **read_instance_summary(AUDIT_DIR),
+        **read_instance_life(WORKSPACE_DIR),
+    }
     return render_template("index.html", instance=instance)
 
 

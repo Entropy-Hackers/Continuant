@@ -4,14 +4,21 @@
 # instance (an instance may live on a different server from any other —
 # see app.py's module docstring). Real deployments live as a sibling of
 # the instance, e.g. /opt/continuants/instances/CGR-55/dashboard/, with
-# `build:` pointing back at this repo directory as the build context and
-# a single read-only mount of that instance's own audit/ directory.
+# `build:` pointing back at this repo directory as the build context.
 #
-# Never mount workspace/, config/, or secrets/. No docker.sock access;
-# liveness is inferred from audit-tap freshness, not `docker ps`.
+# Reads that instance's own audit/ (ops metrics) and workspace/ (the
+# "life" side: MEMORY.md, work/, people/, library/, reflection/) —
+# both read-only. Never mounts config/ or secrets/. No docker.sock
+# access; liveness is inferred from audit-tap freshness, not `docker ps`.
 #
-# Reached only via `tailscale serve --set-path /dashboard/<instance> \
-# 127.0.0.1:<port>` on the host (see README.md) — never bind 0.0.0.0.
+# Optionally join the instance's shared ops_net (see the real deployment
+# under /opt/continuants/instances/*/dashboard/ for the pattern) so an
+# existing Caddy can reverse_proxy to it for a real public URL — the
+# dashboard's own password auth is the access control at that point, not
+# network placement. Otherwise reach it via `tailscale serve` on the
+# host, on its own HTTPS port (a path under the same origin as another
+# app on this host can collide with client-side route capture — give it
+# a separate port instead, see README.md).
 
 services:
   dashboard:
@@ -26,3 +33,4 @@ services:
       - secrets/.env
     volumes:
       - /opt/continuants/instances/INSTANCE_NAME/audit:/data/audit:ro
+      - /opt/continuants/instances/INSTANCE_NAME/workspace:/data/workspace:ro
