@@ -1,0 +1,11 @@
+[Unit]
+Description=Continuant public-site build for instance %i
+ConditionPathExists=/opt/continuants/instances/%i/workspace/work/published
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/continuants/instances/%i
+ExecStart=/usr/bin/python3 /opt/continuants/continuant/tools/publish/build_site.py \
+    --instance-dir /opt/continuants/instances/%i \
+    --instance-name %i
+User=root

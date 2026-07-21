@@ -1,0 +1,15 @@
+[Unit]
+Description=Continuant audit tap for instance %i
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/continuants/instances/%i
+ExecStart=/usr/bin/python3 /opt/continuants/continuant/tools/audit-tap/audit_tap.py \
+    --instance-dir /opt/continuants/instances/%i \
+    --instance-name %i
+# Defense in depth: the tap only ever reads/writes instance-dir/audit/ and
+# talks to the instance's own openclaw CLI over the docker socket. It never
+# needs to run as the instance's container user.
+User=root

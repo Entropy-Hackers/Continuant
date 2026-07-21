@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <title>{{ instance.name }} — Continuant Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: system-ui, sans-serif; background: #f4f4f2; color: #222; margin: 0; padding: 2rem; }
+    h1 { font-size: 1.3rem; display: flex; justify-content: space-between; align-items: center; }
+    h1 a { font-size: .8rem; font-weight: normal; }
+    .instance { background: #fff; border-radius: 10px; padding: 1.25rem 1.5rem; margin-bottom: 1.5rem;
+                box-shadow: 0 1px 4px rgba(0,0,0,.08); max-width: 60rem; }
+    .instance-head { display: flex; align-items: center; gap: .6rem; margin-bottom: .75rem; }
+    .dot { width: .7rem; height: .7rem; border-radius: 50%; display: inline-block; }
+    .dot.ok { background: #2a2; } .dot.stale { background: #c33; }
+    table { border-collapse: collapse; width: 100%; font-size: .85rem; margin-bottom: .75rem; }
+    th, td { text-align: left; padding: .3rem .6rem .3rem 0; border-bottom: 1px solid #eee; }
+    .meta { font-size: .8rem; color: #666; }
+    .status-ok { color: #2a2; } .status-error { color: #c33; } .status-idle { color: #888; }
+    .empty { color: #888; font-size: .9rem; }
+  </style>
+</head>
+<body>
+  <h1>{{ instance.name }} <a href="{{ url_for('logout') }}">Abmelden</a></h1>
+
+  <div class="instance">
+    <div class="instance-head">
+      <span class="dot {{ 'stale' if instance.stale else 'ok' }}"></span>
+      <span class="meta">letzter Poll: {{ instance.last_poll_at | iso_to_local }}</span>
+    </div>
+
+    <div class="meta" style="margin-bottom:.75rem;">
+      {{ instance.audit_event_count }} Audit-Events insgesamt · letztes: {{ instance.last_audit_event_ts | iso_to_local }}
+    </div>
+
+    {% if instance.cron_jobs %}
+    <table>
+      <tr><th>Cron-Job</th><th>Status</th><th>Letzter Lauf</th><th>Nächster Lauf</th><th>Fehler in Folge</th></tr>
+      {% for job in instance.cron_jobs %}
+      <tr>
+        <td>{{ job.name }}</td>
+        <td class="status-{{ 'error' if job.status == 'error' else ('idle' if job.status == 'idle' else 'ok') }}">{{ job.status }}</td>
+        <td>{{ job.state.lastRunAtMs | ms_to_local if job.state else '—' }}</td>
+        <td>{{ (job.state.nextRunAtMs if job.state else job.nextRunAtMs) | ms_to_local }}</td>
+        <td>{{ job.state.consecutiveErrors if job.state and job.state.consecutiveErrors else 0 }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% else %}
+    <p class="empty">Keine Cron-Jobs.</p>
+    {% endif %}
+
+    {% if instance.workspace_stats %}
+    <table>
+      <tr><th>Workspace</th><th>Dateien</th><th>Größe</th><th>Zuletzt geändert</th></tr>
+      {% for sub, stats in instance.workspace_stats.items() %}
+      <tr>
+        <td>{{ sub }}</td>
+        <td>{{ stats.file_count }}</td>
+        <td>{{ stats.total_bytes | fmt_bytes }}</td>
+        <td>{{ stats.last_modified_iso | iso_to_local }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% endif %}
+  </div>
+</body>
+</html>

@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <title>Continuant Dashboard — Login</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: system-ui, sans-serif; background: #f4f4f2; display: flex;
+           align-items: center; justify-content: center; height: 100vh; margin: 0; }
+    form { background: #fff; padding: 2rem; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.1);
+           width: 20rem; }
+    h1 { font-size: 1.1rem; margin: 0 0 1rem; }
+    input { width: 100%; padding: .5rem; margin-bottom: 1rem; box-sizing: border-box;
+            border: 1px solid #ccc; border-radius: 6px; }
+    button { width: 100%; padding: .6rem; background: #a23; color: #fff; border: none;
+             border-radius: 6px; cursor: pointer; }
+    .error { color: #a23; font-size: .9rem; margin-bottom: 1rem; }
+  </style>
+</head>
+<body>
+  <form method="post">
+    <h1>Continuant Dashboard</h1>
+    {% if error %}<div class="error">{{ error }}</div>{% endif %}
+    <input type="password" name="password" placeholder="Admin-Passwort" autofocus>
+    <button type="submit">Anmelden</button>
+  </form>
+</body>
+</html>

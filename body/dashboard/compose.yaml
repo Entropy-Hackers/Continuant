@@ -1,0 +1,28 @@
+# body/dashboard/compose.yaml — TEMPLATE, not meant to be run in place.
+#
+# One dashboard deployment per Continuant instance, colocated with that
+# instance (an instance may live on a different server from any other —
+# see app.py's module docstring). Real deployments live as a sibling of
+# the instance, e.g. /opt/continuants/instances/CGR-55/dashboard/, with
+# `build:` pointing back at this repo directory as the build context and
+# a single read-only mount of that instance's own audit/ directory.
+#
+# Never mount workspace/, config/, or secrets/. No docker.sock access;
+# liveness is inferred from audit-tap freshness, not `docker ps`.
+#
+# Reached only via `tailscale serve --set-path /dashboard/<instance> \
+# 127.0.0.1:<port>` on the host (see README.md) — never bind 0.0.0.0.
+
+services:
+  dashboard:
+    build: .
+    container_name: continuant-dashboard-INSTANCE_NAME
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8090:8090"
+    environment:
+      DASHBOARD_INSTANCE_NAME: INSTANCE_NAME
+    env_file:
+      - secrets/.env
+    volumes:
+      - /opt/continuants/instances/INSTANCE_NAME/audit:/data/audit:ro
