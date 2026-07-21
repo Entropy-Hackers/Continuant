@@ -23,7 +23,16 @@ reach.
 | `cron_snapshot` | `openclaw cron list --json --all` |
 | `sessions_snapshot` | `openclaw sessions --json --all-agents` |
 | `status_snapshot` | `openclaw status --json --usage` |
+| `contacts_snapshot` | `openclaw config get channels --json` — the configured contact allowlists (e.g. `channels.matrix.dm.allowFrom`), no secrets |
 | `workspace_stats` | host-side file counts/sizes/mtimes under `workspace/{work,library,reflection}` — read-only, from the observer side, never written back |
+
+`message_activity` (per-window outbound send counts, for rate-based
+auto-stop) is **not** captured: it would need `openclaw audit --kind
+message` and `audit.messages` in `openclaw.json`, neither of which exist in
+any openclaw version released as of 2026-07-21 (checked directly against
+the newest published tag, `2026.7.1`, via `openclaw config schema` and
+`openclaw audit --help` — the public docs describe this ahead of release).
+See `docs/adr/0004`.
 
 Cursor/dedup state lives in `<instance-dir>/audit/state/cursor.json`.
 

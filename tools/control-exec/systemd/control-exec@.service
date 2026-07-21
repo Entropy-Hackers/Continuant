@@ -1,0 +1,15 @@
+[Unit]
+Description=Continuant control-queue executor for instance %i
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/continuants/instances/%i
+ExecStart=/usr/bin/python3 /opt/continuants/continuant/tools/control-exec/control_exec.py \
+    --instance-dir /opt/continuants/instances/%i
+# Root: the executor calls the instance's own openclaw CLI over the docker
+# socket and edits config/cron state the instance's own container user must
+# not be able to touch directly. This is the one process allowed to act on
+# a dashboard's request — see docs/adr/0004.
+User=root

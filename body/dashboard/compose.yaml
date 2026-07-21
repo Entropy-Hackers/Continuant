@@ -2,14 +2,21 @@
 #
 # One dashboard deployment per Continuant instance, colocated with that
 # instance (an instance may live on a different server from any other —
-# see app.py's module docstring). Real deployments live as a sibling of
-# the instance, e.g. /opt/continuants/instances/CGR-55/dashboard/, with
-# `build:` pointing back at this repo directory as the build context.
+# see backend/main.py's module docstring). Real deployments live as a
+# sibling of the instance, e.g. /opt/continuants/instances/CGR-55/dashboard/,
+# with `build:` pointing back at this repo directory as the build context.
 #
 # Reads that instance's own audit/ (ops metrics) and workspace/ (the
 # "life" side: MEMORY.md, work/, people/, library/, reflection/) —
-# both read-only. Never mounts config/ or secrets/. No docker.sock
-# access; liveness is inferred from audit-tap freshness, not `docker ps`.
+# both read-only. Writes exactly one thing: control/command.json — see
+# docs/adr/0004 and tools/control-exec/README.md; that directory must be
+# rw, everything else stays ro. Never mounts config/ or secrets/. No
+# docker.sock access; liveness is inferred from audit-tap freshness, not
+# `docker ps`.
+#
+# db/ is the dashboard's OWN small SQLite state (phase-change history,
+# see backend/db.py) — private to this container, not shared with
+# anything else, owned by the container's fixed UID (10001).
 #
 # Optionally join the instance's shared ops_net (see the real deployment
 # under /opt/continuants/instances/*/dashboard/ for the pattern) so an
@@ -42,3 +49,5 @@ services:
     volumes:
       - /opt/continuants/instances/INSTANCE_NAME/audit:/data/audit:ro
       - /opt/continuants/instances/INSTANCE_NAME/workspace:/data/workspace:ro
+      - /opt/continuants/instances/INSTANCE_NAME/control:/data/control
+      - /opt/continuants/instances/INSTANCE_NAME/dashboard/db:/data/db

@@ -197,7 +197,13 @@ def main() -> int:
     poll_snapshot(compose_dir, events_path, instance, "cron_snapshot", ["cron", "list", "--json", "--all"])
     poll_snapshot(compose_dir, events_path, instance, "sessions_snapshot", ["sessions", "--json", "--all-agents"])
     poll_snapshot(compose_dir, events_path, instance, "status_snapshot", ["status", "--json", "--usage"])
+    poll_snapshot(compose_dir, events_path, instance, "contacts_snapshot", ["config", "get", "channels", "--json"])
     poll_workspace_stats(instance_dir, events_path, instance)
+    # No message_activity poll: `audit --kind message` and `audit.messages`
+    # config do not exist in any released openclaw version yet (checked
+    # against 2026.7.1, the newest published tag) — only agent_run and
+    # tool_action are audited, and ordinary chat replies are neither. See
+    # docs/adr/0004.
 
     state["last_poll_at"] = now_iso()
     save_state(state_path, state)

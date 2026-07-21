@@ -1,0 +1,9 @@
+[Unit]
+Description=Watch control queue for Continuant instance %i
+
+[Path]
+PathExists=/opt/continuants/instances/%i/control/command.json
+Unit=control-exec@%i.service
+
+[Install]
+WantedBy=multi-user.target
